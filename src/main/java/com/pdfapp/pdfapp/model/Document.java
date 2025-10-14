@@ -1,7 +1,7 @@
 package com.pdfapp.pdfapp.model;
 
 import jakarta.persistence.*;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "documents")
@@ -11,32 +11,35 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "FILENAME")
+    private String filename;
+
+    @Column(name = "MIME_TYPE")
+    private String mimeType;
+
+    @Column(name = "PDF_BLOB")
+    private byte[] pdfBlob;
+    
+    @Lob
+    private String extractedText;
+
+    @Column(name = "TEXT_FILE_PATH")
+    private String textFilePath;
+
+    @Column(name = "UPLOADED_AT")
+    private LocalDateTime uploadedAt;
+
     @ManyToOne
     @JoinColumn(name = "owner_id")
     private User owner;
+    
+    public Document() {
+        this.uploadedAt = LocalDateTime.now();
+    }
 
-    private String filename;
-    private String mimeType;
-
-    @Lob
-    private byte[] pdfBlob;
-
-    @Lob
-    @Column(columnDefinition = "CLOB")
-    private String extractedText;
-
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date uploadedAt ;
-
-    public Document() {}
-
-    // getters & setters
-
+    // Getters & Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
-    public User getOwner() { return owner; }
-    public void setOwner(User owner) { this.owner = owner; }
 
     public String getFilename() { return filename; }
     public void setFilename(String filename) { this.filename = filename; }
@@ -44,12 +47,15 @@ public class Document {
     public String getMimeType() { return mimeType; }
     public void setMimeType(String mimeType) { this.mimeType = mimeType; }
 
-    public byte[] getPdfBlob() { return pdfBlob; }
-    public void setPdfBlob(byte[] pdfBlob) { this.pdfBlob = pdfBlob; }
-
     public String getExtractedText() { return extractedText; }
-    public void setExtractedText(String extractedText) { this.extractedText = extractedText; }
+    public void setExtractedText(String extractedText) { this.extractedText = extractedText; } // ✅
 
-    public Date getUploadedAt() { return uploadedAt; }
-    public void setUploadedAt(Date uploadedAt) { this.uploadedAt = uploadedAt; }
-}
+    public String getTextFilePath() { return textFilePath; }
+    public void setTextFilePath(String textFilePath) { this.textFilePath = textFilePath; }
+
+    public User getOwner() { return owner; }
+    public void setOwner(User owner) { this.owner = owner; }
+
+    public LocalDateTime getUploadedAt() { return uploadedAt; }
+    public void setUploadedAt(LocalDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
+   }

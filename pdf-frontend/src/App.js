@@ -4,28 +4,38 @@ import Register from "./components/Register";
 import DocumentManager from "./components/DocumentManager";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLogin, setShowLogin] = useState(true);
+  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [showRegister, setShowRegister] = useState(false);
+
+  const handleLoginSuccess = () => setUserId(localStorage.getItem("userId"));
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    setUserId(null);
+  };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      {!isLoggedIn ? (
-        <div>
-          <h1>Welcome to PDF Manager</h1>
-          <div style={{ marginBottom: "20px" }}>
-            <button onClick={() => setShowLogin(true)}>Login</button>
-            <button onClick={() => setShowLogin(false)}>Register</button>
-          </div>
-
-          {showLogin ? (
-            <Login onLoginSuccess={() => setIsLoggedIn(true)} />
-          ) : (
-            <Register />
-          )}
-        </div>
-      ) : (
-        <DocumentManager />
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      {!userId && !showRegister && (
+        <>
+          <Login onLoginSuccess={handleLoginSuccess} />
+          <p>
+            Don't have an account?{" "}
+            <button onClick={() => setShowRegister(true)}>Register</button>
+          </p>
+        </>
       )}
+
+      {!userId && showRegister && (
+        <>
+          <Register />
+          <p>
+            Already have an account?{" "}
+            <button onClick={() => setShowRegister(false)}>Login</button>
+          </p>
+        </>
+      )}
+
+      {userId && <DocumentManager onLogout={handleLogout} />}
     </div>
   );
 }
