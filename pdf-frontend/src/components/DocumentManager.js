@@ -8,6 +8,8 @@ const DocumentManager = ({ onLogout }) => {
   const [file, setFile] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [keyword, setKeyword] = useState("");
+  const [fileSearchKeywords, setFileSearchKeywords] = useState({});
+  const [fileSearchResults, setFileSearchResults] = useState({}); // store results per file
 
   // Fetch all documents
   const fetchDocuments = async () => {
@@ -46,7 +48,7 @@ const DocumentManager = ({ onLogout }) => {
     }
   };
 
-  // Search documents
+  // Global search documents
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!keyword.trim()) return fetchDocuments();
@@ -67,6 +69,11 @@ const DocumentManager = ({ onLogout }) => {
     try {
       await axios.delete(`${API_BASE}/${id}`);
       fetchDocuments();
+      setFileSearchResults((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     } catch (err) {
       console.error(err);
       alert("Delete failed");
@@ -92,6 +99,22 @@ const DocumentManager = ({ onLogout }) => {
     }
   };
 
+  // Per-file search
+  const handleFileSearch = async (id) => {
+    const keyword = fileSearchKeywords[id];
+    if (!keyword || !keyword.trim()) return;
+
+    try {
+      const res = await axios.get(`${API_BASE}/${id}/search`, {
+        params: { keyword },
+      });
+      setFileSearchResults((prev) => ({ ...prev, [id]: res.data }));
+    } catch (err) {
+      console.error(err);
+      alert("Per-file search failed");
+    }
+  };
+
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -105,7 +128,7 @@ const DocumentManager = ({ onLogout }) => {
         <button onClick={handleUpload}>Upload PDF/DOC</button>
       </div>
 
-      {/* Search */}
+      {/* Global Search */}
       <form onSubmit={handleSearch}>
         <input
           type="text"
@@ -116,7 +139,7 @@ const DocumentManager = ({ onLogout }) => {
         <button type="submit">Search</button>
       </form>
 
-      {/* Table */}
+      {/* Document Table */}
       <table
         border="1"
         cellPadding="10"
@@ -128,29 +151,63 @@ const DocumentManager = ({ onLogout }) => {
             <th>Uploaded At</th>
             <th>Download</th>
             <th>Delete</th>
+            <th>Search Inside File</th>
           </tr>
         </thead>
         <tbody>
           {documents.length === 0 && (
             <tr>
-              <td colSpan="4" style={{ textAlign: "center" }}>
+              <td colSpan="5" style={{ textAlign: "center" }}>
                 No documents found
               </td>
             </tr>
           )}
           {documents.map((doc) => (
-            <tr key={doc.id}>
-              <td>{doc.filename}</td>
-              <td>{doc.uploadedAtFormatted}</td>
-              <td>
-                <button onClick={() => handleDownload(doc.id, doc.filename)}>
-                  Download
-                </button>
-              </td>
-              <td>
-                <button onClick={() => handleDelete(doc.id)}>Delete</button>
-              </td>
-            </tr>
+            <React.Fragment key={doc.id}>
+              <tr>
+                <td>{doc.filename}</td>
+                <td>{doc.uploadedAtFormatted}</td>
+                <td>
+                  <button onClick={() => handleDownload(doc.id, doc.filename)}>Download</button>
+                </td>
+                <td>
+                  <button onClick={() => handleDelete(doc.id)}>Delete</button>
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    placeholder="Keyword"
+                    value={fileSearchKeywords[doc.id] || ""}
+                    onChange={(e) =>
+                      setFileSearchKeywords({ ...fileSearchKeywords, [doc.id]: e.target.value })
+                    }
+                  />
+                  <button onClick={() => handleFileSearch(doc.id)}>Search</button>
+                </td>
+              </tr>
+
+              {/* Highlighted Search Results */}
+              {fileSearchResults[doc.id] && fileSearchResults[doc.id].length > 0 && (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: "left", backgroundColor: "#f9f9f9" }}>
+                    <strong>Search Results:</strong>
+                    <ul>
+                      {fileSearchResults[doc.id].map((line, index) => (
+                        <li key={index}>
+                          {line.split(new RegExp(`(${fileSearchKeywords[doc.id]})`, "gi")).map((part, i) =>
+                            part.toLowerCase() === fileSearchKeywords[doc.id].toLowerCase() ? (
+                              <mark key={i}>{part}</mark>
+                            ) : (
+                              part
+                            )
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
           ))}
         </tbody>
       </table>

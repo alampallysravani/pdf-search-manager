@@ -1,0 +1,40 @@
+ 
+ 
+(Accredited by NAAC & NBA, Approved by AICTE New Delhi & Permanently Affiliated to JNTUH) 
+Aziz Nagar Gate, C.B. Post, Hyderabad-500 075 
+Department of Information Technology 
+ 
+MAJOR PROJECT ABSTRACT 
+ 
+1. Title :  AI-powered Legal Research Assistant with Retrieval-Augmented 
+    Generation for Indian Law 
+ 
+2. Class & Semester :  IV- I 
+ 
+3. Academic Year :  2024-25 
+ 
+4. Batch Number : 20 
+ 
+S. No. Student Name Hall Ticket No. 
+1 Akshara Dondeti 22911A1266 
+2 Aishwarya Pulipaka 22911A12A7 
+3 Akshaya Reddy Konatham 22911A1268 
+4   
+ 
+5. Organization / Place : VJIT 
+ 
+6. Domain : GenAI 
+7. Internal Guide : Mr.K.Mallikarjuna Rao 
+Abstract 
+ 
+ 
+ 
+Internal Guide R&D Coordinator HOD 
+This project develops an AI-powered Legal Research Assistant tailored for Indian 
+law,simplifying access to judgments and statutes through Retrieval-Augmented 
+Generation(RAG). The system enables natural language queries, delivers concise case 
+summaries,and recommends relevant precedents using semantic vector search. It also 
+provides drafting support with legal templates and multilingual capability.Leveraging 
+vector stores (Pinecone) for retrieval, relational databases for metadata, and Neo4j for 
+citation networks, as well as LLMs for summarization and drafting, the solution is 
+modular, scalable, and enhances the efficiency of Indian legal research. 

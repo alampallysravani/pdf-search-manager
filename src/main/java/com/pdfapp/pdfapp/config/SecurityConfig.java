@@ -54,16 +54,17 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors() // enable CORS
+            .cors()
             .and()
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/users/login",
-                    "/api/users/register",
-                    "/api/documents/**"   // allow document endpoints
-                ).permitAll()
-                .anyRequest().authenticated()
-            )
+            	    .requestMatchers(
+            	        "/api/users/login",
+            	        "/api/users/register",
+            	        "/api/documents/**"
+            	    ).permitAll()
+            	    .anyRequest().authenticated()
+            	)
+
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 

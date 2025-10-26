@@ -1,0 +1,26 @@
+
+
+(Accredited by NAAC & NBA, Approved by AICTE New Delhi & Permanently Affiliated to JNTUH)
+Aziz Nagar Gate, C.B. Post, Hyderabad-500 075
+Department of Information Technology
+
+MINI PROJECT ABSTRACT
+
+	Title				: Ransomware Classification and Detection With Machine Learning
+
+Class & Semester	  : IT-B 4(1)
+
+Academic Year	: 2025-26
+
+Batch Number	: 23
+
+
+	Organization / Place	: VJIT
+
+	Domain	: Machine Learning
+	Internal Guide	: Mrs.G.Indira Priya Darshini
+Abstract
+
+
+
+Internal Guide	R&D Coordinator	HOD

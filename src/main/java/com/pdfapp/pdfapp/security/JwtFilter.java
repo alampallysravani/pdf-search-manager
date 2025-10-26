@@ -18,13 +18,13 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
-    // Include all document endpoints you want publicly accessible
+    // Define public endpoints that don't require JWT
     private static final List<String> PUBLIC_URLS = List.of(
         "/api/users/login",
         "/api/users/register",
-        "/api/documents", 
-        "/api/documents/", 
-        "/api/documents/search/content"
+        "/api/documents",
+        "/api/documents/search",
+        "/api/documents/download"
     );
 
     public JwtFilter(JwtUtil jwtUtil) {
@@ -39,13 +39,13 @@ public class JwtFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // Skip JWT validation for public endpoints
-        if (PUBLIC_URLS.stream().anyMatch(path::startsWith)) {
+        boolean isPublic = PUBLIC_URLS.stream().anyMatch(path::startsWith);
+        if (isPublic) {
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-
         String username = null;
         String jwt = null;
 
@@ -58,6 +58,7 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         }
 
+        // Set authentication if JWT is valid
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtUtil.validateToken(jwt, username)) {
                 UsernamePasswordAuthenticationToken authToken =

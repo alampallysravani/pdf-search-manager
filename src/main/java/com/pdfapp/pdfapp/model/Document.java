@@ -17,11 +17,8 @@ public class Document {
     @Column(name = "MIME_TYPE")
     private String mimeType;
 
-    @Column(name = "PDF_BLOB")
-    private byte[] pdfBlob;
-    
-    @Lob
-    private String extractedText;
+    @Column(name = "PDF_FILE_PATH")
+    private String pdfFilePath;
 
     @Column(name = "TEXT_FILE_PATH")
     private String textFilePath;
@@ -32,7 +29,7 @@ public class Document {
     @ManyToOne
     @JoinColumn(name = "owner_id")
     private User owner;
-    
+
     public Document() {
         this.uploadedAt = LocalDateTime.now();
     }
@@ -47,8 +44,8 @@ public class Document {
     public String getMimeType() { return mimeType; }
     public void setMimeType(String mimeType) { this.mimeType = mimeType; }
 
-    public String getExtractedText() { return extractedText; }
-    public void setExtractedText(String extractedText) { this.extractedText = extractedText; } // ✅
+    public String getPdfFilePath() { return pdfFilePath; }
+    public void setPdfFilePath(String pdfFilePath) { this.pdfFilePath = pdfFilePath; }
 
     public String getTextFilePath() { return textFilePath; }
     public void setTextFilePath(String textFilePath) { this.textFilePath = textFilePath; }
@@ -58,4 +55,4 @@ public class Document {
 
     public LocalDateTime getUploadedAt() { return uploadedAt; }
     public void setUploadedAt(LocalDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
-   }
+}
