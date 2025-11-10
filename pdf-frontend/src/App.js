@@ -1,42 +1,35 @@
-import React, { useState } from "react";
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+
 import Login from "./components/Login";
 import Register from "./components/Register";
 import DocumentManager from "./components/DocumentManager";
+import AdminDashboard from "./components/AdminDashboard";
 
 function App() {
-  const [userId, setUserId] = useState(localStorage.getItem("userId"));
-  const [showRegister, setShowRegister] = useState(false);
-
-  const handleLoginSuccess = () => setUserId(localStorage.getItem("userId"));
-  const handleLogout = () => {
-    localStorage.removeItem("userId");
-    setUserId(null);
-  };
+  const role = (localStorage.getItem("role") || "").toUpperCase();
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      {!userId && !showRegister && (
-        <>
-          <Login onLoginSuccess={handleLoginSuccess} />
-          <p>
-            Don't have an account?{" "}
-            <button onClick={() => setShowRegister(true)}>Register</button>
-          </p>
-        </>
-      )}
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-      {!userId && showRegister && (
-        <>
-          <Register />
-          <p>
-            Already have an account?{" "}
-            <button onClick={() => setShowRegister(false)}>Login</button>
-          </p>
-        </>
-      )}
+      <Route
+        path="/admin"
+        element={
+          role === "ADMIN" ? <AdminDashboard /> : <Navigate to="/login" />
+        }
+      />
 
-      {userId && <DocumentManager onLogout={handleLogout} />}
-    </div>
+      <Route
+        path="/user"
+        element={
+          role === "USER" ? <DocumentManager /> : <Navigate to="/login" />
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/login" />} />
+    </Routes>
   );
 }
 

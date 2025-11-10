@@ -13,15 +13,15 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // Use a fixed secret key (don’t regenerate every restart)
-    private static final String SECRET = "mysecretkey1234567890mysecretkey1234567890"; // at least 32 chars
-    private final Key SECRET_KEY = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), SignatureAlgorithm.HS256.getJcaName());
+    private static final String SECRET = "mystrongsecretkeyforjwttokenmystrongsecretkeyforjwttoken";
+    private final Key SECRET_KEY = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8),
+            SignatureAlgorithm.HS256.getJcaName());
+    private final long EXPIRATION = 1000 * 60 * 60 * 10;
 
-    private final long EXPIRATION = 1000 * 60 * 60 * 10; // 10 hours
-
-    public String generateToken(String username) {
+    public String generateToken(String username, String role) {
         return Jwts.builder()
                 .setSubject(username)
+                .claim("role", role)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(SECRET_KEY)
@@ -30,6 +30,10 @@ public class JwtUtil {
 
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
     public boolean validateToken(String token, String username) {

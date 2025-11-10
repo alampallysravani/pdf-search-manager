@@ -40,11 +40,23 @@ public class UserController {
         try {
             String token = userService.login(req.getUsername(), req.getPassword());
             User user = userService.getByUsername(req.getUsername()).get();
-            return ResponseEntity.ok(new LoginResponse(token, user.getUsername(), user.getEmail()));
+
+            return ResponseEntity.ok(
+                new LoginResponse(
+                    token,
+                    user.getId(),
+                    user.getUsername(),
+                    user.getEmail(),
+                    user.getRole()
+                )
+            );
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
         }
     }
+
+
+
 
     // Get all users (secured)
     @GetMapping

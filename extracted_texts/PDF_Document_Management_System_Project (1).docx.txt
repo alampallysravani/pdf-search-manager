@@ -1,0 +1,62 @@
+PDF Document Management System
+A full-stack web application for secure document upload, extraction, and management using Spring Boot (Backend) and React.js (Frontend) with JWT Authentication. Admins can upload and delete documents, while users can search, view, and download extracted text files.
+Features
+Admin:
+- Login using secure credentials (JWT-based)
+- Upload PDF or DOCX files and extract text automatically
+- Delete and search documents globally or inside files
+User:
+- Register & Login securely
+- View uploaded documents and search text
+- Download extracted text as .txt
+Tech Stack
+Backend: Java 17, Spring Boot 3.x, Spring Security, JWT, JPA, Apache PDFBox, Apache POI
+Frontend: React.js, Axios, React Router, HTML/CSS
+Folder Structure
+
+pdfapp/
+├── pdf-backend/
+│   ├── controller/
+│   ├── config/
+│   ├── model/
+│   ├── repository/
+│   ├── security/
+│   ├── service/
+│   └── application.properties
+├── pdf-frontend/
+│   ├── components/
+│   ├── App.js
+│   └── index.js
+└── README.md
+
+Setup Instructions
+1️⃣ Backend Setup (Spring Boot):
+- Install Java 17 and Maven
+- Configure MySQL credentials in application.properties
+- Run the backend using: mvn spring-boot:run
+2️⃣ Frontend Setup (React):
+- Navigate to pdf-frontend/
+- Run npm install
+- Start frontend using: npm start
+Default Admin Credentials
+Username: admin
+Password: admin123
+Role: ADMIN
+API Endpoints
+
+POST /api/users/register → Register new user
+POST /api/users/login → Login and receive JWT
+GET /api/documents → List documents
+POST /api/documents/upload → Upload (Admin only)
+GET /api/documents/{id}/file → Open file
+GET /api/documents/{id}/download → Download extracted text
+DELETE /api/documents/{id} → Delete (Admin only)
+GET /api/documents/search → Global keyword search
+GET /api/documents/{id}/search → Search within a document
+
+Troubleshooting
+Common issues and solutions:
+- Login failed: Verify username/password and DB record
+- Upload failed: Ensure valid JWT token and backend running
+- Delete failed: Only admin has permission
+- No documents found: Upload files as Admin first

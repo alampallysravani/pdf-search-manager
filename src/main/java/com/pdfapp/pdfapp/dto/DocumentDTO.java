@@ -2,40 +2,29 @@ package com.pdfapp.pdfapp.dto;
 
 import com.pdfapp.pdfapp.model.Document;
 import java.time.format.DateTimeFormatter;
-import java.time.LocalDateTime;
 
 public class DocumentDTO {
-
     private Long id;
     private String filename;
     private String mimeType;
-    private String uploadedAtFormatted;
+    private String ownerName;
+    private Long ownerId;
+    private String uploadedAt;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-
-    public DocumentDTO() {}
-
-    public DocumentDTO(Document document) {
-        if (document != null) {
-            this.id = document.getId();
-            this.filename = document.getFilename();
-            this.mimeType = document.getMimeType();
-
-            LocalDateTime uploadedAt = document.getUploadedAt();
-            this.uploadedAtFormatted = uploadedAt != null ? uploadedAt.format(FORMATTER) : "";
-        }
+    public DocumentDTO(Document doc) {
+        this.id = doc.getId();
+        this.filename = doc.getFilename();
+        this.mimeType = doc.getMimeType();
+        this.ownerId = (doc.getOwner() != null) ? doc.getOwner().getId() : null;
+        this.ownerName = (doc.getOwner() != null) ? doc.getOwner().getUsername() : "N/A";
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        this.uploadedAt = doc.getUploadedAt() != null ? doc.getUploadedAt().format(fmt) : "N/A";
     }
 
-    // Getters & Setters
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
     public String getFilename() { return filename; }
-    public void setFilename(String filename) { this.filename = filename; }
-
     public String getMimeType() { return mimeType; }
-    public void setMimeType(String mimeType) { this.mimeType = mimeType; }
-
-    public String getUploadedAtFormatted() { return uploadedAtFormatted; }
-    public void setUploadedAtFormatted(String uploadedAtFormatted) { this.uploadedAtFormatted = uploadedAtFormatted; }
+    public String getOwnerName() { return ownerName; }
+    public Long getOwnerId() { return ownerId; }
+    public String getUploadedAt() { return uploadedAt; }
 }

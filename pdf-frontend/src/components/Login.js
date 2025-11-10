@@ -1,47 +1,77 @@
 import React, { useState } from "react";
-import axios from "../api";
+import axios from "axios";
 
-function Login({ onLoginSuccess }) {
+const API_BASE = "http://localhost:8080/api/users";
+
+function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:8080/api/users/login", {
+      const res = await axios.post(`${API_BASE}/login`, {
         username,
         password,
       });
 
-      alert("Login successful!");
-      localStorage.setItem("userId", response.data.id || "1"); // store user id
-      onLoginSuccess(); // switch to document upload page
+      // ✅ Correct destructuring (NO duplicate variables)
+      const { token, id, username: uname, email, role } = res.data;
+
+localStorage.setItem("token", token);
+localStorage.setItem("userId", id);
+localStorage.setItem("username", uname);
+localStorage.setItem("email", email);
+localStorage.setItem("role", role);
+
+
+if (role === "ADMIN") {
+  window.location.href = "/admin";
+} else {
+  window.location.href = "/user";
+}
+
     } catch (err) {
-      alert("Login failed! Please check credentials.");
+      console.error(err);
+      alert("Login failed. Check username and password.");
     }
   };
 
   return (
-    <div>
+  <div>
+    <form onSubmit={handleLogin}>
       <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <br />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <br />
-        <button type="submit">Login</button>
-      </form>
-    </div>
-  );
+
+      <input
+        type="text"
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        required
+      />
+      <br />
+
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <br />
+
+      <button type="submit">Login</button>
+    </form>
+
+    <p>
+      Don’t have an account?{" "}
+      <a href="/register" style={{ color: "blue", cursor: "pointer" }}>
+        Register here
+      </a>
+    </p>
+  </div>
+);
+
 }
 
 export default Login;

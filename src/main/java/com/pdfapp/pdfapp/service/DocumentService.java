@@ -22,7 +22,6 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
 
-    // Folder where PDFs and extracted text will be stored
     @Value("${storage.base-folder:uploads}")
     private String baseFolder;
 
@@ -31,83 +30,53 @@ public class DocumentService {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Uploads a PDF, extracts text, saves extracted text as a file, and stores file path in DB.
-     */
-    public Document uploadDocument(MultipartFile file, String username) throws IOException {
-        // Get user
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Document uploadDocument(MultipartFile file, Long ownerId) throws IOException {
+        User user = userRepository.findById(ownerId)
+                .orElseThrow(() -> new RuntimeException("Owner not found"));
 
-        // Create folders if not exist
         Path pdfDir = Paths.get(baseFolder, "pdfs");
         Path textDir = Paths.get(baseFolder, "text");
         Files.createDirectories(pdfDir);
         Files.createDirectories(textDir);
 
-        // Save uploaded PDF
         Path pdfPath = pdfDir.resolve(file.getOriginalFilename());
         Files.write(pdfPath, file.getBytes());
 
-        // Extract text from PDF
-        String extractedText;
-        try (PDDocument document = PDDocument.load(file.getInputStream())) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            extractedText = stripper.getText(document);
+        String extractedText = "";
+        if ("application/pdf".equals(file.getContentType())) {
+            try (PDDocument pdfDoc = PDDocument.load(file.getBytes())) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                extractedText = stripper.getText(pdfDoc);
+            }
         }
 
-        // Save extracted text to a .txt file
         String textFileName = file.getOriginalFilename().replace(".pdf", ".txt");
         Path textFilePath = textDir.resolve(textFileName);
         Files.writeString(textFilePath, extractedText);
 
-        // Create and save Document entity
         Document doc = new Document();
         doc.setFilename(file.getOriginalFilename());
         doc.setMimeType(file.getContentType());
-        doc.setUploadedAt(LocalDateTime.now());
+        doc.setPdfFilePath(pdfPath.toString());
         doc.setTextFilePath(textFilePath.toString());
-        
+        doc.setOwner(user);
 
         return documentRepository.save(doc);
     }
 
-    /**
-     * Returns all documents belonging to a specific user.
-     */
-    public List<Document> getUserDocuments(String username) {
-        User user = userRepository.findByUsername(username)
+    public List<Document> getUserDocuments(Long ownerId) {
+        User user = userRepository.findById(ownerId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return documentRepository.findByOwner(user);
     }
 
-    /**
-     * Searches for documents containing a specific keyword in their extracted text file.
-     */
-    public List<Document> searchDocuments(String username, String keyword) {
-        List<Document> userDocs = getUserDocuments(username);
-        return userDocs.stream()
-                .filter(doc -> {
-                    try {
-                        String content = Files.readString(Path.of(doc.getTextFilePath()));
-                        return content.toLowerCase().contains(keyword.toLowerCase());
-                    } catch (IOException e) {
-                        return false;
-                    }
-                })
-                .toList();
-    }
-
-    /**
-     * Deletes a document and its corresponding files.
-     */
     public void deleteDocument(Long documentId) throws IOException {
-        Optional<Document> optDoc = documentRepository.findById(documentId);
-        if (optDoc.isPresent()) {
-            Document doc = optDoc.get();
-            // Delete stored files
-            Files.deleteIfExists(Path.of(doc.getTextFilePath()));
-            documentRepository.deleteById(documentId);
-        }
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        if (doc.getPdfFilePath() != null) Files.deleteIfExists(Path.of(doc.getPdfFilePath()));
+        if (doc.getTextFilePath() != null) Files.deleteIfExists(Path.of(doc.getTextFilePath()));
+
+        documentRepository.delete(doc);
     }
 }

@@ -22,15 +22,6 @@ public class UserService {
         this.jwtUtil = jwtUtil;
     }
 
-    /**
-     * Registers a new user.
-     *
-     * @param username username of the new user
-     * @param password raw password
-     * @param email    user's email
-     * @return saved User entity
-     * @throws RuntimeException if username already exists
-     */
     public User register(String username, String password, String email) {
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("Username already exists");
@@ -38,20 +29,13 @@ public class UserService {
 
         User user = new User();
         user.setUsername(username);
-        user.setPasswordHash(passwordEncoder.encode(password)); // encode password
+        user.setPasswordHash(passwordEncoder.encode(password));
         user.setEmail(email);
+        user.setRole("USER"); // Default role
 
         return userRepository.save(user);
     }
 
-    /**
-     * Authenticates a user and returns a JWT token.
-     *
-     * @param username    username
-     * @param rawPassword plain password
-     * @return JWT token
-     * @throws RuntimeException if user not found or password invalid
-     */
     public String login(String username, String rawPassword) {
         Optional<User> optUser = userRepository.findByUsername(username);
         if (optUser.isEmpty()) throw new RuntimeException("User not found");
@@ -61,24 +45,15 @@ public class UserService {
             throw new RuntimeException("Invalid password");
         }
 
-        return jwtUtil.generateToken(username);
+        // ✅ generate token with role embedded
+        return jwtUtil.generateToken(user.getUsername(), user.getRole());
     }
 
-    /**
-     * Returns all users.
-     *
-     * @return list of users
-     */
+
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
-    /**
-     * Fetches a user by username.
-     *
-     * @param username username
-     * @return Optional of User
-     */
     public Optional<User> getByUsername(String username) {
         return userRepository.findByUsername(username);
     }

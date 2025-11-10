@@ -12,6 +12,7 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,100 +27,151 @@ public class DocumentController {
 
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
-    private final String PDF_FOLDER = "uploaded_pdfs";
-    private final String TEXT_FOLDER = "extracted_texts";
+    private final Path pdfDir = Paths.get("uploaded_pdfs");
+    private final Path textDir = Paths.get("extracted_texts");
 
     public DocumentController(DocumentRepository documentRepository, UserRepository userRepository) {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
 
         try {
-            Files.createDirectories(Paths.get(System.getProperty("user.dir"), PDF_FOLDER));
-            Files.createDirectories(Paths.get(System.getProperty("user.dir"), TEXT_FOLDER));
+            Files.createDirectories(pdfDir);
+            Files.createDirectories(textDir);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Upload PDF/DOCX — store file & extracted text in folders
+    // ✅ Upload (Admin only)
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/upload")
-    public ResponseEntity<DocumentDTO> upload(@RequestParam("file") MultipartFile file,
-                                              @RequestParam(value = "ownerId", required = false) Long ownerId) throws IOException {
-        if (file.isEmpty()) return ResponseEntity.badRequest().build();
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file,
+                                        @RequestParam(value = "ownerId", required = false) Long ownerId) {
+        if (file.isEmpty()) return ResponseEntity.badRequest().body("No file selected");
 
-        Path pdfPath = Paths.get(System.getProperty("user.dir"), PDF_FOLDER, file.getOriginalFilename());
-        Files.write(pdfPath, file.getBytes());
+        try {
+            String filename = file.getOriginalFilename();
+            Path pdfPath = pdfDir.resolve(filename);
+            Files.write(pdfPath, file.getBytes());
 
-        String extractedText = "";
-        if ("application/pdf".equals(file.getContentType())) {
-            try (PDDocument pdfDoc = PDDocument.load(file.getBytes())) {
-                PDFTextStripper stripper = new PDFTextStripper();
-                extractedText = stripper.getText(pdfDoc);
+            // Extract text
+            String extractedText = extractText(file);
+            Path textPath = textDir.resolve(filename + ".txt");
+            Files.writeString(textPath, extractedText);
+
+            // Save metadata
+            Document doc = new Document();
+            doc.setFilename(filename);
+            doc.setMimeType(file.getContentType());
+            doc.setPdfFilePath(pdfPath.toString());
+            doc.setTextFilePath(textPath.toString());
+
+            if (ownerId != null) {
+                userRepository.findById(ownerId).ifPresent(doc::setOwner);
             }
-        } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(file.getContentType())) {
-            try (XWPFDocument docx = new XWPFDocument(new ByteArrayInputStream(file.getBytes()))) {
-                StringBuilder sb = new StringBuilder();
-                for (XWPFParagraph para : docx.getParagraphs()) {
-                    sb.append(para.getText()).append("\n");
-                }
-                extractedText = sb.toString();
-            }
+
+            documentRepository.save(doc);
+            return ResponseEntity.ok(new DocumentDTO(doc));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("File upload failed: " + e.getMessage());
         }
-
-        Path textFilePath = Paths.get(System.getProperty("user.dir"), TEXT_FOLDER, file.getOriginalFilename() + ".txt");
-        Files.writeString(textFilePath, extractedText);
-
-        Document doc = new Document();
-        doc.setFilename(file.getOriginalFilename());
-        doc.setMimeType(file.getContentType());
-        doc.setPdfFilePath(pdfPath.toAbsolutePath().toString());
-        doc.setTextFilePath(textFilePath.toAbsolutePath().toString());
-
-        if (ownerId != null && ownerId > 0) {
-            userRepository.findById(ownerId).ifPresent(doc::setOwner);
-        }
-
-        documentRepository.save(doc);
-        return ResponseEntity.ok(new DocumentDTO(doc));
     }
 
-    // List all uploaded documents
+    private String extractText(MultipartFile file) throws IOException {
+        String contentType = file.getContentType();
+        if (contentType == null) return "";
+
+        if (contentType.contains("pdf")) {
+            try (PDDocument pdfDoc = PDDocument.load(file.getBytes())) {
+                return new PDFTextStripper().getText(pdfDoc);
+            }
+        } else if (contentType.contains("word")) {
+            try (XWPFDocument docx = new XWPFDocument(file.getInputStream())) {
+                StringBuilder sb = new StringBuilder();
+                for (XWPFParagraph p : docx.getParagraphs()) {
+                    sb.append(p.getText()).append("\n");
+                }
+                return sb.toString();
+            }
+        }
+        return "";
+    }
+
+    // ✅ Show all docs for both Admin & Users
     @GetMapping
-    public List<DocumentDTO> listAll() {
-        return documentRepository.findAll().stream()
+    public List<DocumentDTO> getDocuments(@RequestParam(value = "ownerId", required = false) Long ownerId) {
+        List<Document> docs = documentRepository.findAll();
+
+        return docs.stream()
                 .map(DocumentDTO::new)
+                .sorted(Comparator.comparing(DocumentDTO::getUploadedAt, Comparator.nullsLast(String::compareTo)).reversed())
                 .collect(Collectors.toList());
     }
 
-    // Download extracted text file
+    // ✅ Open PDF/DOCX file inline
+    @GetMapping("/{id}/file")
+    public ResponseEntity<Resource> openFile(@PathVariable Long id) throws IOException {
+        Document doc = documentRepository.findById(id).orElse(null);
+        if (doc == null) return ResponseEntity.notFound().build();
+
+        Path path = Paths.get(doc.getPdfFilePath());
+        if (!Files.exists(path)) return ResponseEntity.notFound().build();
+
+        ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+        MediaType type = doc.getMimeType().toLowerCase().contains("word")
+                ? MediaType.APPLICATION_OCTET_STREAM
+                : MediaType.APPLICATION_PDF;
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + path.getFileName() + "\"")
+                .contentType(type)
+                .contentLength(Files.size(path))
+                .body(resource);
+    }
+
+    // ✅ Download extracted text
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> download(@PathVariable Long id) {
+    public ResponseEntity<Resource> downloadText(@PathVariable Long id) throws IOException {
         Document doc = documentRepository.findById(id).orElse(null);
         if (doc == null) return ResponseEntity.notFound().build();
 
         Path path = Paths.get(doc.getTextFilePath());
         if (!Files.exists(path)) return ResponseEntity.notFound().build();
 
+        ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + path.getFileName() + "\"")
+                .contentType(MediaType.TEXT_PLAIN)
+                .contentLength(Files.size(path))
+                .body(resource);
+    }
+
+    // ✅ Delete (Admin only)
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteDocument(@PathVariable Long id) {
+        Optional<Document> optionalDoc = documentRepository.findById(id);
+        if (optionalDoc.isEmpty()) return ResponseEntity.status(404).body("Document not found");
+
+        Document doc = optionalDoc.get();
         try {
-            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + path.getFileName().toString() + "\"")
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .contentLength(Files.size(path))
-                    .body(resource);
+            if (doc.getPdfFilePath() != null) Files.deleteIfExists(Paths.get(doc.getPdfFilePath()));
+            if (doc.getTextFilePath() != null) Files.deleteIfExists(Paths.get(doc.getTextFilePath()));
+            documentRepository.delete(doc);
+            return ResponseEntity.ok("Document deleted successfully");
         } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(500).body("Failed to delete files");
         }
     }
 
-    // Search PDFs by keyword in extracted text files (all files)
+    // ✅ Search globally across files
     @GetMapping("/search")
     public List<DocumentDTO> searchDocuments(@RequestParam String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) return List.of();
-
         String searchKey = keyword.toLowerCase();
+
         return documentRepository.findAll().stream()
                 .filter(doc -> {
                     try {
@@ -133,48 +185,21 @@ public class DocumentController {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Search inside a specific file by ID
+    // ✅ Search inside one document
     @GetMapping("/{id}/search")
     public ResponseEntity<List<String>> searchInFile(@PathVariable Long id,
-                                                     @RequestParam String keyword) {
+                                                     @RequestParam String keyword) throws IOException {
         Document doc = documentRepository.findById(id).orElse(null);
         if (doc == null) return ResponseEntity.notFound().build();
 
         Path path = Paths.get(doc.getTextFilePath());
         if (!Files.exists(path)) return ResponseEntity.notFound().build();
 
-        try {
-            List<String> lines = Files.readAllLines(path);
-            String lowerKeyword = keyword.toLowerCase();
-            List<String> results = new ArrayList<>();
-            for (String line : lines) {
-                if (line.toLowerCase().contains(lowerKeyword)) {
-                    results.add(line);
-                }
-            }
-            return ResponseEntity.ok(results);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
+        List<String> lines = Files.readAllLines(path);
+        List<String> results = lines.stream()
+                .filter(line -> line.toLowerCase().contains(keyword.toLowerCase()))
+                .collect(Collectors.toList());
 
-    // Delete document + both files
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
-        Optional<Document> optionalDoc = documentRepository.findById(id);
-        if (optionalDoc.isEmpty()) return ResponseEntity.notFound().build();
-
-        Document doc = optionalDoc.get();
-
-        try {
-            if (doc.getPdfFilePath() != null) Files.deleteIfExists(Paths.get(doc.getPdfFilePath()));
-            if (doc.getTextFilePath() != null) Files.deleteIfExists(Paths.get(doc.getTextFilePath()));
-            documentRepository.delete(doc);
-            return ResponseEntity.noContent().build();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(results);
     }
 }

@@ -17,19 +17,23 @@ public class User {
     private String username;
 
     @Column(nullable = false)
-    private String passwordHash; // 🔑 store encoded password here
+    private String passwordHash;
 
     private String email;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt = new Date();
 
+    // ✅ ROLE FIELD (ADMIN or USER)
+    @Column(nullable = false)
+    private String role = "USER";   // default
+
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Document> documents = new ArrayList<>();
 
     public User() {}
 
-    // getters & setters
+    // ✅ Getters & Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -44,6 +48,17 @@ public class User {
 
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+
+    public String getRole() { return role; }
+
+    // ✅ Ensure role is always uppercase (ADMIN / USER)
+    public void setRole(String role) {
+        if (role == null) {
+            this.role = "USER";
+        } else {
+            this.role = role.trim().toUpperCase();
+        }
+    }
 
     public List<Document> getDocuments() { return documents; }
     public void setDocuments(List<Document> documents) { this.documents = documents; }

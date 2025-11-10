@@ -1,90 +1,80 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
 const API_BASE = "http://localhost:8080/api/documents";
 
-const DocumentManager = ({ onLogout }) => {
+function DocumentManager() {
   const userId = localStorage.getItem("userId");
+  const role = (localStorage.getItem("role") || "USER").toUpperCase();
+
   const [file, setFile] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [keyword, setKeyword] = useState("");
+  const [search, setSearch] = useState("");
   const [fileSearchKeywords, setFileSearchKeywords] = useState({});
-  const [fileSearchResults, setFileSearchResults] = useState({}); // store results per file
 
-  // Fetch all documents
-  const fetchDocuments = async () => {
+  // ✅ Fetch all documents (Admin and User)
+  const fetchDocuments = useCallback(async () => {
     try {
-      const res = await axios.get(API_BASE);
+      const res = await axios.get(`${API_BASE}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
       setDocuments(res.data);
     } catch (err) {
       console.error(err);
-      alert("Failed to fetch documents");
+      alert("⚠️ Failed to fetch documents. Please check backend.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, [fetchDocuments]);
 
-  // Upload PDF/DOC
+  // ✅ Upload file (Admin only)
   const handleUpload = async () => {
-    if (!file) return alert("Select a file first!");
+    if (!file) return alert("Please select a file first!");
+    if (!userId) return alert("User ID not found.");
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("ownerId", userId);
 
     try {
       const res = await axios.post(`${API_BASE}/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
-      if (res.status === 200) {
-        alert("File uploaded successfully!");
-        setFile(null);
-        fetchDocuments();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed");
-    }
-  };
-
-  // Global search documents
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!keyword.trim()) return fetchDocuments();
-    try {
-      const res = await axios.get(`${API_BASE}/search`, {
-        params: { keyword },
-      });
-      setDocuments(res.data);
-    } catch (err) {
-      console.error(err);
-      alert("Search failed");
-    }
-  };
-
-  // Delete document
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure to delete this file?")) return;
-    try {
-      await axios.delete(`${API_BASE}/${id}`);
+      alert(`✅ Uploaded successfully: ${res.data.filename}`);
+      setFile(null);
       fetchDocuments();
-      setFileSearchResults((prev) => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
     } catch (err) {
       console.error(err);
-      alert("Delete failed");
+      alert(`❌ Upload failed: ${err.response?.data || "Server error"}`);
     }
   };
 
-  // Download extracted text
+  // ✅ Delete file (Admin only)
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this document?")) return;
+    try {
+      const res = await axios.delete(`${API_BASE}/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      alert(res.data || "Deleted successfully.");
+      fetchDocuments();
+    } catch (err) {
+      console.error(err);
+      alert(`❌ Delete failed: ${err.response?.data || "Server error"}`);
+    }
+  };
+
+  // ✅ Download extracted text
   const handleDownload = async (id, filename) => {
     try {
       const res = await axios.get(`${API_BASE}/${id}/download`, {
         responseType: "blob",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
@@ -95,124 +85,163 @@ const DocumentManager = ({ onLogout }) => {
       link.remove();
     } catch (err) {
       console.error(err);
-      alert("Download failed");
+      alert("❌ Download failed");
     }
   };
 
-  // Per-file search
-  const handleFileSearch = async (id) => {
-    const keyword = fileSearchKeywords[id];
-    if (!keyword || !keyword.trim()) return;
+  // ✅ Global search
+  const handleGlobalSearch = async (e) => {
+    e.preventDefault();
+    if (search.trim() === "") return fetchDocuments();
 
     try {
-      const res = await axios.get(`${API_BASE}/${id}/search`, {
-        params: { keyword },
+      const res = await axios.get(`${API_BASE}/search`, {
+        params: { keyword: search },
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      setFileSearchResults((prev) => ({ ...prev, [id]: res.data }));
+      setDocuments(res.data);
     } catch (err) {
       console.error(err);
-      alert("Per-file search failed");
+      alert("❌ Global search failed");
     }
+  };
+
+  // ✅ Search inside specific file and directly open it in new tab
+  const handleInsideSearch = (id) => {
+    const keyword = fileSearchKeywords[id];
+    if (!keyword || keyword.trim() === "") {
+      alert("Please enter a keyword to search.");
+      return;
+    }
+
+    const fileUrl = `${API_BASE}/${id}/file#search=${encodeURIComponent(keyword)}`;
+    window.open(fileUrl, "_blank"); // opens PDF directly with keyword highlighted
+  };
+
+  // ✅ Logout
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h2>📄 Document Manager</h2>
-        <button onClick={onLogout}>Logout</button>
-      </div>
+    <div style={{ padding: "20px", maxWidth: "1000px", margin: "auto" }}>
+      <h2>📁 Document Manager ({role})</h2>
 
-      {/* Upload */}
-      <div style={{ margin: "15px 0" }}>
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={handleUpload}>Upload PDF/DOC</button>
-      </div>
+      {role === "ADMIN" && (
+        <div style={{ margin: "15px 0" }}>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            accept=".pdf,.docx"
+          />
+          <button onClick={handleUpload} style={{ marginLeft: "10px" }}>
+            Upload PDF/DOCX
+          </button>
+        </div>
+      )}
 
-      {/* Global Search */}
-      <form onSubmit={handleSearch}>
+      <form onSubmit={handleGlobalSearch} style={{ marginBottom: "20px" }}>
         <input
           type="text"
-          placeholder="Search filename or text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="🔍 Search all documents"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: "300px", padding: "6px" }}
         />
-        <button type="submit">Search</button>
+        <button type="submit" style={{ marginLeft: "10px" }}>
+          Search
+        </button>
       </form>
 
-      {/* Document Table */}
       <table
         border="1"
         cellPadding="10"
-        style={{ borderCollapse: "collapse", width: "100%", marginTop: "15px" }}
+        style={{ width: "100%", borderCollapse: "collapse" }}
       >
         <thead>
-          <tr>
+          <tr style={{ backgroundColor: "#f4f4f4" }}>
             <th>Filename</th>
-            <th>Uploaded At</th>
+            <th>Uploaded Date</th>
             <th>Download</th>
-            <th>Delete</th>
-            <th>Search Inside File</th>
+            {role === "ADMIN" && <th>Delete</th>}
+            <th>Search Keyword</th>
           </tr>
         </thead>
         <tbody>
-          {documents.length === 0 && (
+          {documents.length === 0 ? (
             <tr>
-              <td colSpan="5" style={{ textAlign: "center" }}>
+              <td
+                colSpan={role === "ADMIN" ? 5 : 4}
+                style={{ textAlign: "center" }}
+              >
                 No documents found
               </td>
             </tr>
-          )}
-          {documents.map((doc) => (
-            <React.Fragment key={doc.id}>
-              <tr>
-                <td>{doc.filename}</td>
-                <td>{doc.uploadedAtFormatted}</td>
+          ) : (
+            documents.map((doc) => (
+              <tr key={doc.id}>
                 <td>
-                  <button onClick={() => handleDownload(doc.id, doc.filename)}>Download</button>
+                  <a
+                    href={`${API_BASE}/${doc.id}/file`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "blue", textDecoration: "underline" }}
+                  >
+                    {doc.filename}
+                  </a>
                 </td>
+                <td>{doc.uploadedAt || "N/A"}</td>
                 <td>
-                  <button onClick={() => handleDelete(doc.id)}>Delete</button>
+                  <button onClick={() => handleDownload(doc.id, doc.filename)}>
+                    Download
+                  </button>
                 </td>
+                {role === "ADMIN" && (
+                  <td>
+                    <button onClick={() => handleDelete(doc.id)}>Delete</button>
+                  </td>
+                )}
                 <td>
                   <input
                     type="text"
                     placeholder="Keyword"
                     value={fileSearchKeywords[doc.id] || ""}
                     onChange={(e) =>
-                      setFileSearchKeywords({ ...fileSearchKeywords, [doc.id]: e.target.value })
+                      setFileSearchKeywords((prev) => ({
+                        ...prev,
+                        [doc.id]: e.target.value,
+                      }))
                     }
                   />
-                  <button onClick={() => handleFileSearch(doc.id)}>Search</button>
+                  <button
+                    onClick={() => handleInsideSearch(doc.id)}
+                    style={{ marginLeft: "5px" }}
+                  >
+                    Search
+                  </button>
                 </td>
               </tr>
-
-              {/* Highlighted Search Results */}
-              {fileSearchResults[doc.id] && fileSearchResults[doc.id].length > 0 && (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: "left", backgroundColor: "#f9f9f9" }}>
-                    <strong>Search Results:</strong>
-                    <ul>
-                      {fileSearchResults[doc.id].map((line, index) => (
-                        <li key={index}>
-                          {line.split(new RegExp(`(${fileSearchKeywords[doc.id]})`, "gi")).map((part, i) =>
-                            part.toLowerCase() === fileSearchKeywords[doc.id].toLowerCase() ? (
-                              <mark key={i}>{part}</mark>
-                            ) : (
-                              part
-                            )
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
-          ))}
+            ))
+          )}
         </tbody>
       </table>
+
+      <button
+        onClick={handleLogout}
+        style={{
+          marginTop: "20px",
+          backgroundColor: "#d9534f",
+          color: "white",
+          border: "none",
+          padding: "8px 12px",
+          borderRadius: "5px",
+        }}
+      >
+        Logout
+      </button>
     </div>
   );
-};
+}
 
 export default DocumentManager;
